@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>إدارة قطع غيار المتحسسات </title>
+  <style>
+    :root {
+      --bg: #f9fafb; --card:#ffffff; --text:#111827; --muted:#6b7280;
+      --border:#e5e7eb; --accent:#111827; --danger:#b91c1c; --pill:#f3f4f6;
+    }
+    html,body{background:var(--bg);color:var(--text);margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;}
+    .container{max-width:1100px;margin:auto;padding:16px;}
+    header{position:static;top:0;background:#ffffffcc;backdrop-filter:blur(6px);border-bottom:1px solid var(--border);z-index:10;}
+    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+    .space{height:12px;}
+    .card{background:var(--card);border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,.06);padding:16px;}
+    .btn{border-radius:12px;border:1px solid var(--border);background:white;padding:8px 12px;cursor:pointer}
+    .btn.primary{background:var(--accent);border-color:var(--accent);color:white}
+    .btn.danger{color:var(--danger);border-color:#fecaca}
+    .btn.xs{padding:4px 8px;font-size:12px;border-radius:10px}
+    .pill{display:inline-block;background:var(--pill);border-radius:999px;padding:4px 10px;font-size:12px}
+    input,select,textarea{border:1px solid var(--border);border-radius:12px;padding:8px 10px}
+    table{width:100%;border-collapse:collapse;font-size:14px}
+    thead{position:sticky;top:0;background:white}
+    th,td{padding:8px;border-top:1px solid var(--border);vertical-align:top;text-align:start}
+    .muted{color:var(--muted);font-size:12px}
+    .grid{display:grid;gap:12px}
+    @media(min-width:900px){.grid.cols-3{grid-template-columns:2fr 1fr;} .stats{grid-template-columns:repeat(3,1fr)}}
+    .badge-low{background:#fee2e2;color:#991b1b;border-radius:999px;padding:2px 8px;font-size:12px}
+    footer{color:#6b7280;text-align:center;padding:24px 0}
+    dialog{border:none;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.2);}
+    dialog::backdrop{background:rgba(0,0,0,.35)}
+
+    /* صندوق وعنوان داخل الصفحة */
+    .title-box{
+      background:#f3f4f6;
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:14px 18px;
+      margin:10px 0 0;
+      position: relative;
+    }
+    .main-title{
+      position: static;
+      text-align:center;
+      font-weight:800;
+      margin:0;
+      line-height:1.6;
+      font-size: clamp(18px, 1rem + 1vw, 24px);
+      color: var(--text);
+    }
+    .main-title span{ display:block; }
+
+    header .container.row::before{ content:none !important; }
+    .container + .container .title-box{ display:block !important; }
+
+    /* إخفاء زر تصدير JSON */
+    #exportJson{ display:none !important; }
+
+    /* الشعارات */
+    .title-box::before,
+    .title-box::after{
+      content:"";
+      position:absolute;
+      top:50%;
+      transform:translateY(-50%);
+      width:clamp(170px,12vw,120px);
+      height:clamp(147px,12vw,120px);
+      background-size:contain;
+      background-repeat:no-repeat;
+      pointer-events:none;
+    }
+    .title-box::before{
+      left:20px;
+      background-image:url("شعار وزارة الكهرباء.png");
+      width:230px;
+      height:170px;
+    }
+    .title-box::after{
+      right:20px;
+      background-image:url("شعار جامعة النهرين.png");
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <div class="title-box">
+        <h1 class="main-title">
+          <span>الشركة العامة لانتاج الطاقة الكهربائية</span>
+          <span>المنطقة الوسطى</span>
+          <span>محطة كهرباء الدورة الحرارية</span>
+        </h1>
+      </div>
+    </div>
+
+    <div class="container row" style="justify-content:space-between;padding:12px 16px;">
+      <div class="row">
+        <div style="width:250px;height:50px;border-radius:12px;background:#111827;color:white;display:grid;place-items:center;font-weight:bold">إدارة قطع غيار المتحسسات</div>
+        <div>
+          <div style="font-weight:bold"></div>
+          <div class="muted"></div>
+        </div>
+      </div>
+      <div class="row">
+        <span class="muted">الدور:</span>
+        <select id="roleSelect">
+          <option value="manager">مدير</option>
+          <option value="store">أمين مخزن</option>
+          <option value="engineer">مهندس</option>
+        </select>
+        <input id="userName" placeholder="اسم المستخدم" value="مدير النظام" style="width:160px">
+        <button class="btn" id="applyUser">تأكيد</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="row" style="justify-content:space-between;">
+      <div class="row">
+        <input id="q" placeholder="بحث بالاسم/الرمز/ملاحظة" style="width:260px">
+        <select id="typeFilter">
+          <option value="">كل الأنواع</option>
+          <option value="Flow">Flow</option>
+          <option value="Level">Level</option>
+          <option value="Temperature">Temperature</option>
+          <option value="Pressure">Pressure</option>
+        </select>
+      </div>
+      <div class="muted" id="roleBadge">الدور: مدير</div>
+    </div>
+
+    <div class="space"></div>
+
+    <div class="grid stats">
+      <div class="card"><div class="muted">إجمالي الكميات</div><div id="statTotal" style="font-weight:bold;font-size:22px">0</div></div>
+      <div class="card"><div class="muted">المستهلك</div><div id="statCons" style="font-weight:bold;font-size:22px">0</div></div>
+      <div class="card"><div class="muted">المتبقي</div><div id="statRem" style="font-weight:bold;font-size:22px">0</div></div>
+    </div>
+
+    <div class="space"></div>
+
+    <div class="grid cols-3">
+      <div class="card">
+        <div class="row" style="justify-content:space-between;margin-bottom:8px">
+          <div style="font-weight:bold">المخزون</div>
+          <button class="btn primary" id="btnAddItem">+ إضافة قطعة</button>
+        </div>
+        <div style="overflow:auto">
+          <table id="itemsTable">
+            <thead>
+              <tr class="muted">
+                <th>#</th><th>اسم القطعة</th><th>النوع</th><th>رمز</th><th>إجمالي</th><th>مستهلك</th><th>متبقي</th><th>حد أدنى</th><th>إجراءات</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="font-weight:bold;margin-bottom:8px">تنبيهات حدّ أدنى</div>
+        <ul id="lowList" style="list-style:none;padding:0;margin:0"></ul>
+      </div>
+    </div>
+
+    <div class="space"></div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between;margin-bottom:8px">
+        <div class="row"><div style="font-weight:bold">سجل الحركات</div></div>
+        <button class="btn" id="exportJson">تصدير JSON</button>
+      </div>
+      <div style="overflow:auto">
+        <table id="txTable">
+          <thead>
+            <tr class="muted"><th>التاريخ</th><th>العنصر</th><th>النوع</th><th>الكمية</th><th>المهندس/الجهة</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <footer> <span id="year"></span> </footer>
+
+  <!-- Dialogs -->
+  <dialog id="dlgItem">
+    <form method="dialog" style="min-width:520px">
+      <h3 style="margin:0 0 8px 0">إضافة/تعديل قطعة</h3>
+      <div class="grid" style="grid-template-columns:1fr 1fr">
+        <label> <div class="muted">اسم القطعة</div> <input id="fName" required> </label>
+        <label> <div class="muted">النوع</div>
+          <select id="fType">
+            <option value="Flow">Flow</option>
+            <option value="Level">Level</option>
+            <option value="Temperature">Temperature</option>
+            <option value="Pressure">Pressure</option>
+          </select>
+        </label>
+        <label> <div class="muted">رمز القطعة</div> <input id="fCode"> </label>
+        <label> <div class="muted">الكمية الإجمالية</div> <input id="fTotal" type="number" value="0"> </label>
+        <label> <div class="muted">مستهلك حتى الآن</div> <input id="fConsumed" type="number" value="0"> </label>
+        <label> <div class="muted">حد أدنى للتنبيه</div> <input id="fMin" type="number" value="0"> </label>
+        <label style="grid-column:1/-1"> <div class="muted">ملاحظات</div> <textarea id="fNotes" rows="2"></textarea> </label>
+      </div>
+      <div class="row" style="justify-content:flex-end;margin-top:8px">
+        <button class="btn" value="cancel">إلغاء</button>
+        <button class="btn primary" id="saveItem" value="default">حفظ</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlgIssue">
+    <form method="dialog" style="min-width:420px">
+      <h3 style="margin:0 0 8px 0">صرف قطعة</h3>
+      <div class="grid">
+        <label><div class="muted">الكمية</div><input id="issQty" type="number" value="1"></label>
+        <label><div class="muted">المهندس/الجهة</div><input id="issEngineer" placeholder="اسم المهندس أو الجهة"></label>
+      </div>
+      <div class="row" style="justify-content:flex-end;margin-top:8px">
+        <button class="btn" value="cancel">إلغاء</button>
+        <button class="btn primary" id="confirmIssue" value="default">تأكيد الصرف</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlgReceive">
+    <form method="dialog" style="min-width:420px">
+      <h3 style="margin:0 0 8px 0">توريد قطعة</h3>
+      <div class="grid">
+        <label><div class="muted">الكمية</div><input id="recQty" type="number" value="1"></label>
+        <label><div class="muted">ملاحظة</div><input id="recNote" value="توريد"></label>
+        <label><div class="muted">المهندس/الجهة</div><input id="recEngineer" placeholder="اسم المورد/الجهة"></label>
+      </div>
+      <div class="row" style="justify-content:flex-end;margin-top:8px">
+        <button class="btn" value="cancel">إلغاء</button>
+        <button class="btn primary" id="confirmReceive" value="default">تأكيد التوريد</button>
+      </div>
+    </form>
+  </dialog>
+
+<script>
+(() => {
+  const LS = { items: "inv_items_v1", tx: "inv_transactions_v1" };
+  const LOW_THRESHOLD = 5;
+
+  const state = {
+    user: { name: "مدير النظام", role: "manager" },
+    items: load(LS.items, [
+      { id: uid(), name: "حساس تدفق 1", type: "Flow", partCode: "FLW-100", total: 20, consumed: 2, minStock: 5, notes: "" },
+      { id: uid(), name: "حساس مستوى 1", type: "Level", partCode: "LVL-200", total: 12, consumed: 3, minStock: 3, notes: "" },
+      { id: uid(), name: "حساس حرارة 1", type: "Temperature", partCode: "TMP-300", total: 15, consumed: 6, minStock: 4, notes: "" },
+      { id: uid(), name: "حساس ضغط 1", type: "Pressure", partCode: "PRS-400", total: 8, consumed: 1, minStock: 2, notes: "" },
+    ]),
+    tx: load(LS.tx, []),
+    filters: { q: "", type: "" },
+    workingItemId: null,
+  };
+
+  function uid(){ return Math.random().toString(36).slice(2) + Date.now().toString(36); }
+  function load(k, fb){ try{ const r = localStorage.getItem(k); return r? JSON.parse(r): fb }catch(e){ return fb } }
+  function save(k, v){ localStorage.setItem(k, JSON.stringify(v)); }
+
+  const $  = (sel, p=document) => p.querySelector(sel);
+  const q = $("#q"), typeFilter=$("#typeFilter");
+  const roleSel=$("#roleSelect"), userName=$("#userName"), applyUser=$("#applyUser"), roleBadge=$("#roleBadge");
+  const btnAddItem=$("#btnAddItem"), itemsTbody=$("#itemsTable tbody"), lowList=$("#lowList");
+  const statTotal=$("#statTotal"), statCons=$("#statCons"), statRem=$("#statRem");
+  const txBody=$("#txTable tbody");
+  const year=$("#year");
+
+  year.textContent = new Date().getFullYear();
+  roleSel.value = state.user.role;
+
+  function canManage(){ return state.user.role === "manager"; }
+  function canIssue(){ return ["manager","store"].includes(state.user.role); }
+
+  function remaining(it){ return Math.max(0, (Number(it.total)||0) - (Number(it.consumed)||0)); }
+  function low(it){ return remaining(it) <= LOW_THRESHOLD; }
+
+  function render(){
+    const filtered = state.items.filter(it => {
+      const byQ = !state.filters.q || ( (it.name||"") + " " + (it.partCode||"") + " " + (it.notes||"") ).toLowerCase().includes(state.filters.q.toLowerCase());
+      const byType = !state.filters.type || it.type === state.filters.type;
+      return byQ && byType;
+    });
+
+    itemsTbody.innerHTML = "";
+    filtered.forEach((it, i) => {
+      const tr = document.createElement("tr");
+      if(low(it)) tr.style.background = "#fef2f2";
+      tr.innerHTML = `
+        <td>${i+1}</td>
+        <td><div style="font-weight:500">${escapeHtml(it.name)}</div><div class="muted">${escapeHtml(it.notes||"")}</div></td>
+        <td><span class="pill">${it.type}</span></td>
+        <td>${escapeHtml(it.partCode||"")}</td>
+        <td>${it.total}</td>
+        <td>${it.consumed}</td>
+        <td style="font-weight:bold">${remaining(it)}</td>
+        <td>${LOW_THRESHOLD}</td>
+        <td>
+          <div class="row">
+            ${canIssue() ? `<button class="btn" data-act="issue" data-id="${it.id}">صرف</button>`: ""}
+            ${canManage()? `<button class="btn" data-act="receive" data-id="${it.id}">توريد</button>`: ""}
+            ${canManage()? `<button class="btn danger" data-act="delete" data-id="${it.id}">حذف</button>`: ""}
+          </div>
+        </td>
+      `;
+      itemsTbody.appendChild(tr);
+    });
+
+    const lows = state.items.filter(low);
+    lowList.innerHTML = "";
+    if(!lows.length){
+      lowList.innerHTML = `<li class="muted">لا توجد تنبيهات حالياً</li>`;
+    } else {
+      lows.forEach(it => {
+        const li = document.createElement("li");
+        li.className = "row";
+        li.style.justifyContent = "space-between";
+        li.innerHTML = `
+          <div>
+            <div style="font-weight:500">${escapeHtml(it.name)}</div>
+            <div class="muted">المتبقي: ${remaining(it)} | الحد الأدنى: ${LOW_THRESHOLD}</div>
+          </div>
+          <span class="badge-low">منخفض</span>
+        `;
+        lowList.appendChild(li);
+      });
+    }
+
+    const total = state.items.reduce((a,b)=>a+Number(b.total||0),0);
+    const cons = state.items.reduce((a,b)=>a+Number(b.consumed||0),0);
+    statTotal.textContent = total; statCons.textContent = cons; statRem.textContent = Math.max(0, total-cons);
+
+    roleBadge.textContent = "الدور: " + (state.user.role==="manager"?"مدير":state.user.role==="store"?"أمين مخزن":"مهندس");
+    btnAddItem.style.display = canManage()? "inline-block":"none";
+
+    // إضافة عمود "إجراءات" في رأس جدول الحركات مرة واحدة
+    const txHeadRow = document.querySelector('#txTable thead tr');
+    if (txHeadRow && !txHeadRow.querySelector('th[data-actions]')) {
+      const th = document.createElement('th');
+      th.textContent = 'إجراءات';
+      th.setAttribute('data-actions','1');
+      txHeadRow.appendChild(th);
+    }
+
+    txBody.innerHTML = "";
+    state.tx.forEach(t => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${new Date(t.date).toLocaleString()}</td>
+        <td>${escapeHtml(t.itemName)}</td>
+        <td>${t.type}</td>
+        <td>${t.qty}</td>
+        <td>${escapeHtml(t.engineer ?? "—")}</td>
+        <td>
+          ${canManage() ? `<button class="btn xs danger" data-act="del-tx" data-id="${t.id}">حذف</button>` : ''}
+        </td>
+      `;
+      txBody.appendChild(tr);
+    });
+  }
+
+  function persist(){
+    save(LS.items, state.items);
+    save(LS.tx, state.tx);
+  }
+  function escapeHtml(s){ return (s||"").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+  q.addEventListener("input", e => { state.filters.q = e.target.value; render(); });
+  typeFilter.addEventListener("change", e => { state.filters.type = e.target.value; render(); });
+
+  applyUser.addEventListener("click", () => {
+    state.user.name = userName.value || "مستخدم";
+    state.user.role = roleSel.value;
+    render();
+  });
+
+  const dlgItem = $("#dlgItem");
+  btnAddItem.addEventListener("click", () => { if(!canManage()) return; openItemDialog(); });
+
+  function openItemDialog(editItem){
+    state.workingItemId = editItem? editItem.id : null;
+    $("#fName").value = editItem?.name || "";
+    $("#fType").value = editItem?.type || "Flow";
+    $("#fCode").value = editItem?.partCode || "";
+    $("#fTotal").value = editItem?.total ?? 0;
+    $("#fConsumed").value = editItem?.consumed ?? 0;
+    $("#fMin").value = editItem?.minStock ?? 0;
+    $("#fNotes").value = editItem?.notes || "";
+    dlgItem.showModal();
+  }
+
+  $("#saveItem").addEventListener("click", (e) => {
+    e.preventDefault();
+    const item = {
+      name: $("#fName").value.trim(),
+      type: $("#fType").value,
+      partCode: $("#fCode").value.trim(),
+      total: Number($("#fTotal").value||0),
+      consumed: Number($("#fConsumed").value||0),
+      minStock: Number($("#fMin").value||0),
+      notes: $("#fNotes").value.trim()
+    };
+    if(!item.name){ alert("أدخل اسم القطعة"); return; }
+    if(state.workingItemId){
+      const idx = state.items.findIndex(x=>x.id===state.workingItemId);
+      state.items[idx] = { ...state.items[idx], ...item };
+    } else {
+      state.items.unshift({ id: uid(), ...item });
+    }
+    persist(); dlgItem.close(); render();
+  });
+
+  const dlgIssue = $("#dlgIssue");
+  function openIssue(it){
+    if(!canIssue()) return;
+    $("#issQty").value = 1;
+    $("#issEngineer").value = "";
+    dlgIssue.dataset.itemId = it.id;
+    dlgIssue.showModal();
+  }
+  $("#confirmIssue").addEventListener("click", (e) => {
+    e.preventDefault();
+    const id = dlgIssue.dataset.itemId;
+    const it = state.items.find(x=>x.id===id);
+    const qty = Number($("#issQty").value||0);
+    if(qty<=0) return;
+
+    const before = remaining(it);
+    if(qty>before){ alert("الكمية المطلوبة تتجاوز المتوفر"); return; }
+
+    it.consumed = Number(it.consumed||0)+qty;
+
+    const after = remaining(it);
+    if(before > LOW_THRESHOLD && after <= LOW_THRESHOLD){
+      alert(`تنبيه: المخزون منخفض للقطعة "${it.name}". المتبقي الآن ${after} (الحد الأدنى ${LOW_THRESHOLD}).`);
+    }
+
+    state.tx.unshift({
+      id: uid(), itemId:id, itemName: it.name, type: it.type, qty,
+      engineer: ($("#issEngineer").value || "—").trim(),
+      date: new Date().toISOString()
+    });
+
+    persist(); dlgIssue.close(); render();
+  });
+
+  const dlgReceive = $("#dlgReceive");
+  function openReceive(it){
+    if(!canManage()) return;
+    dlgReceive.dataset.itemId = it.id;
+    $("#recQty").value = 1;
+    $("#recNote").value = "توريد";
+    $("#recEngineer").value = "";
+    dlgReceive.showModal();
+  }
+  $("#confirmReceive").addEventListener("click", (e) => {
+    e.preventDefault();
+    const id = dlgReceive.dataset.itemId;
+    const it = state.items.find(x=>x.id===id);
+    const qty = Number($("#recQty").value||0);
+    if(qty<=0) return;
+    it.total = Number(it.total||0)+qty;
+    state.tx.unshift({
+      id: uid(), itemId:id, itemName: it.name, type: it.type, qty,
+      engineer: ($("#recEngineer").value || "—").trim(),
+      note: $("#recNote").value, kind:"receive",
+      date: new Date().toISOString()
+    });
+    persist(); dlgReceive.close(); render();
+  });
+
+  document.getElementById('exportJson')?.addEventListener("click", () => {
+    const data = { exportedAt: new Date().toISOString(), items: state.items, transactions: state.tx };
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href=url; a.download=`inventory-export-${Date.now()}.json`; a.click(); URL.revokeObjectURL(url);
+  });
+
+  itemsTbody.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-act]"); if(!btn) return;
+    const id = btn.getAttribute("data-id");
+    const act = btn.getAttribute("data-act");
+    const it = state.items.find(x => x.id === id);
+    if(!it) return;
+    if(act==="delete"){
+      if(confirm("حذف هذه القطعة؟")){
+        state.items = state.items.filter(x=>x.id!==id);
+        persist(); render();
+      }
+    } else if(act==="issue"){
+      openIssue(it);
+    } else if(act==="receive"){
+      openReceive(it);
+    }
+  });
+
+  // حذف حركة من سجل الحركات
+  txBody.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-act="del-tx"]');
+    if (!btn) return;
+    const id = btn.getAttribute('data-id');
+    if (confirm('حذف هذه الحركة؟')) {
+      state.tx = state.tx.filter(x => x.id !== id);
+      persist();
+      render();
+    }
+  });
+
+  // تفعيل أزرار الإلغاء
+  document.querySelectorAll('dialog button[value="cancel"]').forEach(btn => {
+    btn.type = 'button';
+    btn.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      const d = btn.closest('dialog');
+      if (d) d.close();
+    });
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
